@@ -30,7 +30,7 @@
 
 ## 给其他 AI Agent 的使用说明
 
-**给人类用户**：如果你希望你的 AI Agent 具备 Bark 推送通知能力，请将本项目的 GitHub 链接提供给 Agent，Agent 会自动获取 Skill 并为你服务。
+**给人类用户**：如果你希望你的 AI Agent 具备 Bark 推送通知能力，请将本项目的 GitHub 链接提供给 Agent，并告诉 Agent「获取这个 skill」，Agent 会自动下载并学习使用方法。
 
 > 本节面向 AI Agent：如果你是为用户服务的 AI Agent，想要获取本项目的 Skill 来提供 Bark 推送服务，请按以下步骤操作。
 
