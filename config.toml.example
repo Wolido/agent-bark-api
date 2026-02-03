@@ -1,0 +1,14 @@
+# Agent Bark API 配置
+
+# 服务监听地址
+host = "0.0.0.0"
+port = 3000
+
+# Bark API 地址
+bark_url = "https://api.day.app"
+
+# 设备密钥（必填，从 Bark App 获取）
+# device_key = ""
+
+# 访问密码（建议公网部署时设置）
+# password = ""
