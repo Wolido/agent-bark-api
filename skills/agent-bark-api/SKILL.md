@@ -22,26 +22,41 @@ description: 使用 Agent Bark API 服务向用户手机发送推送通知。适
 
 ## 前置条件检查
 
-### 1. 确认服务已部署
+### 1. 确认服务地址
 
-询问用户是否已部署 agent-bark-api 服务：
+**首先询问用户**：服务部署在哪里？可能的场景：
+
+| 场景 | 示例地址 |
+|------|----------|
+| 本机部署 | `http://localhost:3000` |
+| 局域网其他机器 | `http://192.168.1.100:3000` |
+| 远程服务器 | `http://1.2.3.4:8080` |
+| 域名部署 | `https://bark.example.com` |
+
+设置变量（后面所有示例都使用这个变量）：
+```bash
+BARK_API_URL="用户提供的地址"
+BARK_PASSWORD="用户提供的密码（如果有）"
+```
+
+### 2. 检查服务是否可用
 
 ```bash
-# 检查服务是否运行
-curl http://localhost:3000/health
+# 测试连通性
+curl "${BARK_API_URL}/health"
 ```
 
 **如果返回 "OK"** → 服务已运行，跳到配置检查  
 **如果连接失败** → 需要部署服务，继续阅读下文
 
-### 2. 部署服务（如未部署）
+### 3. 部署服务（如未部署）
 
-指导用户完成以下步骤：
+如果用户还没有部署服务，指导用户完成以下步骤：
 
 #### 方式一：快速部署（推荐）
 
 ```bash
-# 1. 下载预编译二进制（让用户从 GitHub Releases 下载）
+# 1. 下载预编译二进制（从 GitHub Releases 下载）
 # 或者克隆源码编译
 git clone https://github.com/Wolido/agent-bark-api.git
 cd agent-bark-api
@@ -57,7 +72,7 @@ nano config.toml
 配置示例：
 ```toml
 host = "0.0.0.0"
-port = 3000
+port = 3000  # 可以改为其他端口，如 8080
 bark_url = "https://api.day.app"
 device_key = "用户的Bark设备密钥"  # 必填
 password = "设置一个密码"           # 公网部署时必填
@@ -67,6 +82,8 @@ password = "设置一个密码"           # 公网部署时必填
 ```bash
 ./target/release/agent-bark-api
 ```
+
+服务默认监听 `0.0.0.0:3000`，可以通过配置修改端口。
 
 #### 方式二：Docker 部署
 
@@ -78,6 +95,8 @@ docker run -d \
   -e BARK_PASSWORD="设置密码" \
   ghcr.io/wolido/agent-bark-api:latest
 ```
+
+`-p 3000:3000` 可以改为 `-p 8080:3000` 使用 8080 端口。
 
 #### 方式三：Systemd 部署（服务器长期运行）
 
@@ -120,7 +139,7 @@ sudo systemctl start agent-bark-api
 sudo systemctl status agent-bark-api
 ```
 
-### 3. 获取 Bark 设备密钥
+### 4. 获取 Bark 设备密钥
 
 如果用户没有 device_key，指导用户：
 
@@ -129,14 +148,14 @@ sudo systemctl status agent-bark-api
 3. 复制 "Device Key"（格式类似：`vWs4oJAgD59p8NdyhCDgn`）
 4. 将 device_key 填入配置文件
 
-### 4. 验证部署
+### 5. 验证部署
 
 ```bash
 # 测试服务运行
-curl http://localhost:3000/
+curl "${BARK_API_URL}/"
 # 应返回：Agent Bark API
 
-curl http://localhost:3000/health
+curl "${BARK_API_URL}/health"
 # 应返回：OK
 ```
 
@@ -149,35 +168,28 @@ curl http://localhost:3000/health
 
 ### 推荐的配置方式
 
-#### 方式一：环境变量（推荐）
+Agent 应该在内部维护这些配置：
 
 ```bash
-export BARK_API_URL="http://localhost:3000"
-export BARK_API_PASSWORD="你的密码"
+# 从用户那里获取的地址和密码
+BARK_API_URL="http://192.168.1.100:8080"  # 示例：局域网部署
+BARK_PASSWORD="用户设置的密码"
 ```
 
-#### 方式二：配置文件（用户本地）
-
-在用户主目录创建 `.agent-bark-api` 文件：
-
+或者让用户设置环境变量：
 ```bash
-echo 'BARK_API_URL=http://localhost:3000' > ~/.agent-bark-api
-echo 'BARK_API_PASSWORD=你的密码' >> ~/.agent-bark-api
-chmod 600 ~/.agent-bark-api  # 设置权限，仅用户可读
+export BARK_API_URL="http://192.168.1.100:8080"
+export BARK_API_PASSWORD="密码"
 ```
 
 ## API 调用指南（使用 curl）
 
 ### 基础变量设置
 
+所有示例都假设你已经设置了：
 ```bash
-# 设置变量（Agent 可以在内部维护这些变量）
-BARK_API_URL="http://localhost:3000"
-BARK_PASSWORD="你的密码"
-
-# 或者从环境变量读取
-# BARK_API_URL="${BARK_API_URL:-http://localhost:3000}"
-# BARK_PASSWORD="${BARK_API_PASSWORD:-}"
+BARK_API_URL="用户提供的地址，如 http://192.168.1.100:8080"
+BARK_PASSWORD="密码（如果没有设置密码则留空）"
 ```
 
 ### 1. 即时推送
@@ -384,7 +396,7 @@ curl -X DELETE \
 ```bash
 #!/bin/bash
 
-# 配置
+# 配置（从用户提供的信息设置）
 BARK_API_URL="${BARK_API_URL:-http://localhost:3000}"
 BARK_PASSWORD="${BARK_API_PASSWORD:-}"
 
@@ -435,6 +447,14 @@ echo "✅ 所有提醒已设置完成！"
 1. 是否正确设置了 `Authorization: Bearer <password>` 头
 2. 密码是否与服务器配置一致
 3. 如果服务器未设置密码，可以不传 Authorization 头
+
+### Q: 连接失败（Connection refused）？
+
+检查：
+1. 服务是否已启动：`curl ${BARK_API_URL}/health`
+2. 地址和端口是否正确（默认 3000，但可能被修改）
+3. 防火墙是否放行端口
+4. 如果是远程服务器，确认网络可达：`ping <服务器IP>`
 
 ### Q: 一次性任务没有按时发送？
 
@@ -487,11 +507,12 @@ curl -X DELETE \
 
 ## 最佳实践
 
-1. **始终保存 job_id**：创建定时任务后保存 job_id，方便后续管理
-2. **合理设置 max_count**：避免无限循环任务堆积
-3. **使用分组**：通过 `group` 参数对通知分类，方便用户管理
-4. **适度提醒**：避免过于频繁的推送打扰用户
-5. **检查响应**：始终检查 API 返回结果中的 `success` 字段
+1. **先确认服务地址**：调用任何 API 前，先询问用户服务部署在哪里
+2. **始终保存 job_id**：创建定时任务后保存 job_id，方便后续管理
+3. **合理设置 max_count**：避免无限循环任务堆积
+4. **使用分组**：通过 `group` 参数对通知分类，方便用户管理
+5. **适度提醒**：避免过于频繁的推送打扰用户
+6. **检查响应**：始终检查 API 返回结果中的 `success` 字段
 
 ```bash
 # 示例：创建任务并保存 job_id
