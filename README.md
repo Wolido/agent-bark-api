@@ -501,6 +501,49 @@ curl -X POST "${BARK_API_URL}/schedule/cron" \
 
 完整指南请参考：[skills/agent-bark-api/SKILL.md](skills/agent-bark-api/SKILL.md)
 
+### 构建你自己的 Agent Skill
+
+如果你是 AI Agent 开发者，可以直接复用本项目的 skill 文件，让你的 Agent 具备 Bark 推送能力：
+
+**获取 Skill 文件：**
+
+```bash
+# 下载 skill 文件到你的 skills 目录
+curl -o /path/to/your/skills/agent-bark-api/SKILL.md \
+  https://raw.githubusercontent.com/Wolido/agent-bark-api/main/skills/agent-bark-api/SKILL.md
+```
+
+**或者手动复制：**
+
+```
+your-agent/
+├── skills/
+│   └── agent-bark-api/
+│       └── SKILL.md    # 从本项目复制此文件
+└── ...
+```
+
+**Skill 文件说明：**
+
+- **路径**: `skills/agent-bark-api/SKILL.md`
+- **作用**: 教会你的 Agent 如何调用 Bark API 服务
+- **包含内容**: 
+  - 服务部署指南
+  - API 调用示例（即时/定时/循环推送）
+  - 时间格式处理
+  - 常见问题排查
+
+**配置要求：**
+
+使用此 skill 前，需要向用户确认以下信息：
+
+| 配置项 | 说明 | 示例 |
+|--------|------|------|
+| `BARK_API_URL` | Agent Bark API 服务地址 | `http://192.168.1.100:3000` |
+| `BARK_PASSWORD` | 服务密码（如果设置了） | `your-password` |
+
+> **提示**: 本项目已预置完整的 Skill 文件，Agent 开发者无需修改即可直接使用。
+
 ## 相关链接
 
 **Bark 官方：**

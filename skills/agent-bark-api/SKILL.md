@@ -159,27 +159,98 @@ curl "${BARK_API_URL}/health"
 # 应返回：OK
 ```
 
-## 配置敏感信息
+## 获取用户配置信息
 
-⚠️ **安全提醒**：device_key 和 password 是敏感信息，不应该：
-- 硬编码在代码中
-- 提交到 Git 仓库
-- 在不安全的聊天中明文传输
+**⚠️ 重要：使用前必须主动向用户索要以下信息**
 
-### 推荐的配置方式
+不要假设配置已存在，每次使用前（或发现配置缺失时），必须询问用户：
 
-Agent 应该在内部维护这些配置：
+> "我需要使用 Bark 推送通知服务。请提供以下信息：
+> 1. Agent Bark API 服务地址（如 http://192.168.1.100:3000）
+> 2. 访问密码（如果设置了密码）"
+
+**必须获取的配置项：**
+
+| 配置项 | 用途 | 示例 |
+|--------|------|------|
+| `BARK_API_URL` | Agent Bark API 服务地址 | `http://localhost:3000` 或 `http://192.168.1.100:8080` |
+| `BARK_PASSWORD` | 服务访问密码（可选） | `your-password` |
+
+**询问时机：**
+- 用户首次要求发送通知时
+- 配置信息缺失或无效时
+- 调用 API 返回 401 认证错误时
+
+## 保存配置到 Skill
+
+获取到用户配置后，**必须将其保存下来**，避免每次都重复询问：
+
+### 保存方式：写入 Skill 配置文件
+
+在你的 skill 目录下创建 `config.env` 文件存储配置：
 
 ```bash
-# 从用户那里获取的地址和密码
-BARK_API_URL="http://192.168.1.100:8080"  # 示例：局域网部署
-BARK_PASSWORD="用户设置的密码"
+# 写入配置到 skill 目录
+cat > ~/.config/agents/skills/agent-bark-api/config.env << 'EOF'
+BARK_API_URL="http://192.168.1.100:8080"
+BARK_PASSWORD="用户提供的密码"
+EOF
 ```
 
-或者让用户设置环境变量：
+### 读取配置
+
+每次使用前先读取已保存的配置：
+
 ```bash
-export BARK_API_URL="http://192.168.1.100:8080"
-export BARK_API_PASSWORD="密码"
+# 读取配置（如果存在）
+if [ -f ~/.config/agents/skills/agent-bark-api/config.env ]; then
+    source ~/.config/agents/skills/agent-bark-api/config.env
+fi
+
+# 检查配置是否完整
+if [ -z "$BARK_API_URL" ]; then
+    echo "配置缺失，需要向用户询问..."
+    # 这里执行询问用户的逻辑
+fi
+```
+
+### 更新配置
+
+当用户提供新的配置信息时，更新配置文件：
+
+```bash
+# 更新配置
+cat > ~/.config/agents/skills/agent-bark-api/config.env << EOF
+BARK_API_URL="${NEW_API_URL}"
+BARK_PASSWORD="${NEW_PASSWORD}"
+EOF
+
+echo "配置已保存到 ~/.config/agents/skills/agent-bark-api/config.env"
+```
+
+**安全提醒**：
+- 不要将 `config.env` 提交到 Git 仓库
+- 已在 .gitignore 中忽略 `*.env` 文件
+- 避免在不安全的聊天中明文传输密码
+
+---
+
+## API 调用指南（使用 curl）
+
+### 基础变量设置
+
+所有示例都假设你已经设置了：
+```bash
+# 优先读取已保存的配置
+if [ -f ~/.config/agents/skills/agent-bark-api/config.env ]; then
+    source ~/.config/agents/skills/agent-bark-api/config.env
+fi
+
+# 确保配置存在
+if [ -z "$BARK_API_URL" ]; then
+    echo "错误：未配置 BARK_API_URL，请先向用户询问"
+    exit 1
+fi
 ```
 
 ## API 调用指南（使用 curl）
