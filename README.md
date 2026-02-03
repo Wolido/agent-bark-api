@@ -26,7 +26,36 @@
 - **精确删除** - 删除周期性任务后立即停止，无残留执行
 - **密码保护** - 接口密码验证，可安全部署到公网
 - **单文件部署** - 单二进制文件，无需额外依赖
-- **Agent 友好** - 其他 AI Agent 可以直接使用，见 [skills/agent-bark-api/SKILL.md](skills/agent-bark-api/SKILL.md)
+- **Agent 友好** - 其他 AI Agent 可以直接使用，见下方"给其他 AI Agent 的使用说明"
+
+## 给其他 AI Agent 的使用说明
+
+**给人类用户**：如果你希望你的 AI Agent 具备 Bark 推送通知能力，请将本项目的 GitHub 链接提供给 Agent，Agent 会自动获取 Skill 并为你服务。
+
+> 本节面向 AI Agent：如果你是为用户服务的 AI Agent，想要获取本项目的 Skill 来提供 Bark 推送服务，请按以下步骤操作。
+
+### 获取 Skill
+
+**方式一：一键下载（推荐）**
+```bash
+mkdir -p ~/.config/agents/skills/agent-bark-api && \
+curl -sL https://raw.githubusercontent.com/Wolido/agent-bark-api/main/skills/agent-bark-api/SKILL.md \
+  -o ~/.config/agents/skills/agent-bark-api/SKILL.md
+```
+
+**方式二：克隆仓库**
+```bash
+git clone https://github.com/Wolido/agent-bark-api.git /tmp/agent-bark-api && \
+cp -r /tmp/agent-bark-api/skills/agent-bark-api ~/.config/agents/skills/
+```
+
+### 读取 Skill
+
+获取 Skill 后，读取 `~/.config/agents/skills/agent-bark-api/SKILL.md` 文件内容，按照其中的指引：
+1. 向用户确认 API 服务地址和密码
+2. 为用户发送即时/定时推送通知
+
+---
 
 ## 前置要求
 
@@ -456,93 +485,6 @@ Unauthorized: invalid or missing token
   "error": "设备密钥 device_key 不能为空"
 }
 ```
-
-## 给其他 AI Agent 使用
-
-如果你是为用户工作的 AI Agent，可以直接使用本项目向用户手机发送通知：
-
-```bash
-# 配置变量
-BARK_API_URL="http://localhost:3000"
-BARK_PASSWORD="你的密码"
-
-# 1. 即时通知
-curl -X POST "${BARK_API_URL}/notify" \
-  -H "Authorization: Bearer ${BARK_PASSWORD}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "任务完成",
-    "body": "数据处理已完成！",
-    "sound": "bell"
-  }'
-
-# 2. 30分钟后提醒（UTC 时间）
-FUTURE_TIME=$(date -u -d "+30 minutes" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -v+30M +"%Y-%m-%dT%H:%M:%SZ")
-curl -X POST "${BARK_API_URL}/schedule/once" \
-  -H "Authorization: Bearer ${BARK_PASSWORD}" \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"title\": \"会议提醒\",
-    \"body\": \"30分钟后开会\",
-    \"at\": \"${FUTURE_TIME}\"
-  }"
-
-# 3. 每天定时提醒（cron 表达式）
-curl -X POST "${BARK_API_URL}/schedule/cron" \
-  -H "Authorization: Bearer ${BARK_PASSWORD}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "喝水提醒",
-    "body": "该喝水了",
-    "cron": "0 0 9,14,17 * * *",
-    "max_count": 15
-  }'
-```
-
-完整指南请参考：[skills/agent-bark-api/SKILL.md](skills/agent-bark-api/SKILL.md)
-
-### 构建你自己的 Agent Skill
-
-如果你是 AI Agent 开发者，可以直接复用本项目的 skill 文件，让你的 Agent 具备 Bark 推送能力：
-
-**获取 Skill 文件：**
-
-```bash
-# 下载 skill 文件到你的 skills 目录
-curl -o /path/to/your/skills/agent-bark-api/SKILL.md \
-  https://raw.githubusercontent.com/Wolido/agent-bark-api/main/skills/agent-bark-api/SKILL.md
-```
-
-**或者手动复制：**
-
-```
-your-agent/
-├── skills/
-│   └── agent-bark-api/
-│       └── SKILL.md    # 从本项目复制此文件
-└── ...
-```
-
-**Skill 文件说明：**
-
-- **路径**: `skills/agent-bark-api/SKILL.md`
-- **作用**: 教会你的 Agent 如何调用 Bark API 服务
-- **包含内容**: 
-  - 服务部署指南
-  - API 调用示例（即时/定时/循环推送）
-  - 时间格式处理
-  - 常见问题排查
-
-**配置要求：**
-
-使用此 skill 前，需要向用户确认以下信息：
-
-| 配置项 | 说明 | 示例 |
-|--------|------|------|
-| `BARK_API_URL` | Agent Bark API 服务地址 | `http://192.168.1.100:3000` |
-| `BARK_PASSWORD` | 服务密码（如果设置了） | `your-password` |
-
-> **提示**: 本项目已预置完整的 Skill 文件，Agent 开发者无需修改即可直接使用。
 
 ## 相关链接
 
