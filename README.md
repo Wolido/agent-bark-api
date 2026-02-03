@@ -26,6 +26,7 @@
 - **精确删除** - 删除周期性任务后立即停止，无残留执行
 - **密码保护** - 接口密码验证，可安全部署到公网
 - **单文件部署** - 单二进制文件，无需额外依赖
+- **Agent 友好** - 其他 AI Agent 可以直接使用，见 [skills/agent-bark-api/SKILL.md](skills/agent-bark-api/SKILL.md)
 
 ## 前置要求
 
@@ -456,6 +457,50 @@ Unauthorized: invalid or missing token
 }
 ```
 
+## 给其他 AI Agent 使用
+
+如果你是为用户工作的 AI Agent，可以直接使用本项目向用户手机发送通知：
+
+```python
+import os
+import requests
+from datetime import datetime, timezone, timedelta
+
+# 配置
+BARK_API_URL = os.environ.get("BARK_API_URL", "http://localhost:3000")
+BARK_PASSWORD = os.environ.get("BARK_API_PASSWORD", "")
+
+headers = {
+    "Content-Type": "application/json",
+    "Authorization": f"Bearer {BARK_PASSWORD}"
+}
+
+# 1. 即时通知
+requests.post(f"{BARK_API_URL}/notify", headers=headers, json={
+    "title": "任务完成",
+    "body": "数据处理已完成！",
+    "sound": "bell"
+})
+
+# 2. 30分钟后提醒
+future = datetime.now(timezone.utc) + timedelta(minutes=30)
+requests.post(f"{BARK_API_URL}/schedule/once", headers=headers, json={
+    "title": "会议提醒",
+    "body": "30分钟后开会",
+    "at": future.strftime("%Y-%m-%dT%H:%M:%SZ")  # UTC 时间
+})
+
+# 3. 每天定时提醒（cron 表达式）
+requests.post(f"{BARK_API_URL}/schedule/cron", headers=headers, json={
+    "title": "喝水提醒",
+    "body": "该喝水了",
+    "cron": "0 0 9,14,17 * * *",  # 每天9点、14点、17点
+    "max_count": 15  # 最多提醒15次
+})
+```
+
+完整指南请参考：[skills/agent-bark-api/SKILL.md](skills/agent-bark-api/SKILL.md)
+
 ## 相关链接
 
 **Bark 官方：**
@@ -463,7 +508,10 @@ Unauthorized: invalid or missing token
 - [Bark GitHub](https://github.com/Finb/Bark) - iOS App 源码
 - [Bark 服务端 GitHub](https://github.com/Finb/bark-server) - 官方服务端参考实现
 
-**本项目技术栈：**
+**本项目：**
+- [Agent 使用指南](skills/agent-bark-api/SKILL.md) - 给其他 AI Agent 的详细使用说明
+
+**技术栈：**
 - [Axum](https://github.com/tokio-rs/axum) - Web 框架
 - [Tokio](https://tokio.rs/) - 异步运行时
 - [tokio-cron-scheduler](https://github.com/mvniekerk/tokio-cron-scheduler) - 定时任务调度
