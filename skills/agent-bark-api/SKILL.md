@@ -63,6 +63,11 @@ device_key = "用户的Bark设备密钥"  # 必填
 password = "设置一个密码"           # 公网部署时必填
 ```
 
+然后运行：
+```bash
+./target/release/agent-bark-api
+```
+
 #### 方式二：Docker 部署
 
 ```bash
@@ -161,86 +166,57 @@ echo 'BARK_API_PASSWORD=你的密码' >> ~/.agent-bark-api
 chmod 600 ~/.agent-bark-api  # 设置权限，仅用户可读
 ```
 
-#### 方式三：Agent 配置
+## API 调用指南（使用 curl）
 
-如果 Agent 支持配置系统，引导用户在配置中设置：
+### 基础变量设置
 
-```json
-{
-  "agent_bark_api": {
-    "url": "http://localhost:3000",
-    "password": "你的密码"
-  }
-}
-```
+```bash
+# 设置变量（Agent 可以在内部维护这些变量）
+BARK_API_URL="http://localhost:3000"
+BARK_PASSWORD="你的密码"
 
-## API 调用指南
-
-### 基础配置
-
-```python
-import os
-
-BARK_API_URL = os.environ.get("BARK_API_URL", "http://localhost:3000")
-BARK_PASSWORD = os.environ.get("BARK_API_PASSWORD", "")
-
-headers = {
-    "Content-Type": "application/json",
-    "Authorization": f"Bearer {BARK_PASSWORD}"
-}
+# 或者从环境变量读取
+# BARK_API_URL="${BARK_API_URL:-http://localhost:3000}"
+# BARK_PASSWORD="${BARK_API_PASSWORD:-}"
 ```
 
 ### 1. 即时推送
 
 适用场景：任务完成、错误告警、即时通知
 
-```python
-import requests
+```bash
+# 基础调用
+curl -X POST "${BARK_API_URL}/notify" \
+  -H "Authorization: Bearer ${BARK_PASSWORD}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "任务完成",
+    "body": "数据处理已完成！"
+  }'
 
-def send_notification(title: str, body: str, **kwargs):
-    """
-    发送即时推送通知
-    
-    Args:
-        title: 通知标题
-        body: 通知内容
-        sound: 提示音 (可选，如 "bell", "alarm")
-        group: 分组名称 (可选)
-        level: 通知级别 (可选: "active", "timeSensitive", "passive")
-        icon: 图标 URL (可选)
-        url: 点击跳转链接 (可选)
-        copy: 复制到剪贴板的内容 (可选)
-        auto_copy: 是否自动复制 (可选，bool)
-        badge: 角标数字 (可选，int)
-    """
-    data = {
-        "title": title,
-        "body": body,
-        **kwargs
-    }
-    
-    response = requests.post(
-        f"{BARK_API_URL}/notify",
-        headers=headers,
-        json=data
-    )
-    
-    result = response.json()
-    if result.get("success"):
-        print(f"✅ 通知已发送: {title}")
-        return True
-    else:
-        print(f"❌ 发送失败: {result.get('error')}")
-        return False
-
-# 示例
-send_notification(
-    title="任务完成",
-    body="数据处理已完成，共处理 1000 条记录",
-    sound="bell",
-    group="工作通知"
-)
+# 带可选参数
+curl -X POST "${BARK_API_URL}/notify" \
+  -H "Authorization: Bearer ${BARK_PASSWORD}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "服务器告警",
+    "body": "磁盘空间不足，仅剩 10%",
+    "sound": "alarm",
+    "group": "告警",
+    "level": "timeSensitive",
+    "badge": 1
+  }'
 ```
+
+**可选参数说明**：
+- `sound`: 提示音（如 `"bell"`, `"alarm"`, `"glass"`）
+- `group`: 通知分组名称
+- `level`: 通知级别（`"active"`, `"timeSensitive"`, `"passive"`）
+- `icon`: 图标 URL
+- `url`: 点击跳转链接
+- `copy`: 复制到剪贴板的内容
+- `auto_copy`: 是否自动复制（布尔值）
+- `badge`: 角标数字
 
 ### 2. 一次性定时推送
 
@@ -248,282 +224,207 @@ send_notification(
 
 **⚠️ UTC 时间处理**：
 
-```python
-from datetime import datetime, timezone, timedelta
+```bash
+# 计算30分钟后的 UTC 时间
+# macOS
+FUTURE_TIME=$(date -u -v+30M +"%Y-%m-%dT%H:%M:%SZ")
 
-def schedule_once(title: str, body: str, minutes_later: int = 30):
-    """
-    在指定分钟后发送一次性通知
-    
-    Args:
-        title: 通知标题
-        body: 通知内容
-        minutes_later: 多少分钟后发送（默认30分钟）
-    
-    Returns:
-        job_id: 任务ID，可用于取消
-    """
-    # 计算未来时间（UTC）
-    future_time = datetime.now(timezone.utc) + timedelta(minutes=minutes_later)
-    
-    # 格式化为 ISO 8601 UTC 格式（带 Z 后缀）
-    at_time = future_time.strftime("%Y-%m-%dT%H:%M:%SZ")
-    
-    data = {
-        "title": title,
-        "body": body,
-        "at": at_time
-    }
-    
-    response = requests.post(
-        f"{BARK_API_URL}/schedule/once",
-        headers=headers,
-        json=data
-    )
-    
-    result = response.json()
-    if result.get("success"):
-        job_id = result["data"]["job_id"]
-        print(f"✅ 定时任务已创建，ID: {job_id}")
-        print(f"   将在 {minutes_later} 分钟后发送 ({at_time})")
-        return job_id
-    else:
-        print(f"❌ 创建失败: {result.get('error')}")
-        return None
+# Linux
+FUTURE_TIME=$(date -u -d "+30 minutes" +"%Y-%m-%dT%H:%M:%SZ")
 
-# 示例：30分钟后提醒
-job_id = schedule_once(
-    title="会议提醒",
-    body="15分钟后与客户开会，请准备",
-    minutes_later=30
-)
+# 发送一次性定时通知
+curl -X POST "${BARK_API_URL}/schedule/once" \
+  -H "Authorization: Bearer ${BARK_PASSWORD}" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"title\": \"会议提醒\",
+    \"body\": \"30分钟后与客户开会，请准备\",
+    \"at\": \"${FUTURE_TIME}\"
+  }"
 ```
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "data": {
+    "job_id": "db253fcc-669e-49b1-a251-ab2e7dbb5357"
+  }
+}
+```
+
+**注意**：返回的 `job_id` 建议保存，用于后续管理任务。
 
 #### 时间格式详细说明
 
 **必须使用 UTC 时间，格式为 ISO 8601**：
 
-```python
-# ✅ 正确格式
-"2026-02-03T12:30:00Z"      # UTC 时间，带 Z 后缀
-
-# ❌ 错误格式
-"2026-02-03 12:30:00"       # 没有 T 和 Z
-"2026-02-03T12:30:00+08:00" # 带时区偏移（不支持）
+```
+✅ 正确格式: 2026-02-03T12:30:00Z      (UTC 时间，带 Z 后缀)
+❌ 错误格式: 2026-02-03 12:30:00       (没有 T 和 Z)
+❌ 错误格式: 2026-02-03T12:30:00+08:00 (带时区偏移，不支持)
 ```
 
-**本地时间转 UTC**：
+**不同系统生成 UTC 时间**：
 
-```python
-from datetime import datetime, timezone
+```bash
+# macOS - 当前 UTC 时间
+date -u +"%Y-%m-%dT%H:%M:%SZ"
 
-# 假设用户说的是北京时间（UTC+8）
-local_time_str = "2026-02-03 20:30:00"  # 北京时间
+# Linux - 当前 UTC 时间  
+date -u +"%Y-%m-%dT%H:%M:%SZ"
 
-# 解析本地时间（需要知道用户时区）
-user_timezone = timezone(timedelta(hours=8))  # 东八区
-local_time = datetime.strptime(local_time_str, "%Y-%m-%d %H:%M:%M:%S")
-local_time = local_time.replace(tzinfo=user_timezone)
+# macOS - 30分钟后
+date -u -v+30M +"%Y-%m-%dT%H:%M:%SZ"
 
-# 转换为 UTC
-utc_time = local_time.astimezone(timezone.utc)
-utc_time_str = utc_time.strftime("%Y-%m-%dT%H:%M:%SZ")
-# 结果: "2026-02-03T12:30:00Z"
+# Linux - 30分钟后
+date -u -d "+30 minutes" +"%Y-%m-%dT%H:%M:%SZ"
+
+# macOS - 明天上午9点 UTC
+date -u -v+1d -v9H -v0M -v0S +"%Y-%m-%dT%H:%M:%SZ"
+
+# Linux - 明天上午9点 UTC
+date -u -d "tomorrow 09:00" +"%Y-%m-%dT%H:%M:%SZ"
+```
+
+**本地时间转 UTC（以北京时间 UTC+8 为例）**：
+
+```bash
+# 假设用户说的是北京时间 20:30
+LOCAL_TIME="2026-02-03 20:30:00"
+
+# 转换为 UTC（北京时间减8小时）
+# 结果为: 2026-02-03T12:30:00Z
 ```
 
 ### 3. 循环定时推送
 
 适用场景：定期提醒、习惯养成、监控告警
 
-```python
-def schedule_cron(title: str, body: str, cron: str, max_count: int = None):
-    """
-    创建循环定时任务
-    
-    Args:
-        title: 通知标题
-        body: 通知内容
-        cron: cron 表达式（6位：秒 分 时 日 月 星期）
-        max_count: 最大执行次数（可选，达到后自动删除）
-    
-    Returns:
-        job_id: 任务ID
-    """
-    data = {
-        "title": title,
-        "body": body,
-        "cron": cron
-    }
-    
-    if max_count:
-        data["max_count"] = max_count
-    
-    response = requests.post(
-        f"{BARK_API_URL}/schedule/cron",
-        headers=headers,
-        json=data
-    )
-    
-    result = response.json()
-    if result.get("success"):
-        job_id = result["data"]["job_id"]
-        print(f"✅ 循环任务已创建，ID: {job_id}")
-        return job_id
-    else:
-        print(f"❌ 创建失败: {result.get('error')}")
-        return None
+```bash
+# 每天上午9点提醒喝水，最多提醒5次
+curl -X POST "${BARK_API_URL}/schedule/cron" \
+  -H "Authorization: Bearer ${BARK_PASSWORD}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "喝水提醒",
+    "body": "工作再忙也要记得喝水哦",
+    "cron": "0 0 9 * * *",
+    "max_count": 5
+  }'
 
-# 常用 cron 表达式示例：
-
-# 每小时整点
-cron = "0 0 * * * *"  # 秒 分 时 日 月 星期
-
-# 每天上午9点
-cron = "0 0 9 * * *"
-
-# 每天上午9点和下午6点
-cron = "0 0 9,18 * * *"
-
-# 每周一上午9点
-cron = "0 0 9 * * 1"
-
-# 每5分钟
-cron = "0 */5 * * * *"
-
-# 每30秒（不建议，太频繁）
-cron = "*/30 * * * * *"
-
-# 示例：每天提醒喝水，最多提醒3次
-job_id = schedule_cron(
-    title="健康提醒",
-    body="该喝水了，保持身体健康",
-    cron="0 0 9,14,17 * * *",  # 每天9点、14点、17点
-    max_count=9  # 总共提醒9次（3天）
-)
+# 每5分钟提醒一次，最多3次
+curl -X POST "${BARK_API_URL}/schedule/cron" \
+  -H "Authorization: Bearer ${BARK_PASSWORD}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "定时测试",
+    "body": "每5分钟一次",
+    "cron": "0 */5 * * * *",
+    "max_count": 3
+  }'
 ```
 
 #### Cron 表达式格式
 
+格式：`秒 分 时 日 月 星期`
+
 | 位置 | 含义 | 范围 | 示例 |
 |------|------|------|------|
-| 第1位 | 秒 | 0-59 | `0` 或 `*/10` |
-| 第2位 | 分 | 0-59 | `0` 或 `*/5` |
-| 第3位 | 时 | 0-23 | `9` 或 `9,18` |
-| 第4位 | 日 | 1-31 | `*` |
-| 第5位 | 月 | 1-12 | `*` |
-| 第6位 | 星期 | 0-6 (0=周日) | `1` (周一) |
+| 1 | 秒 | 0-59 | `0` 或 `*/10` |
+| 2 | 分 | 0-59 | `0` 或 `*/5` |
+| 3 | 时 | 0-23 | `9` 或 `9,18` |
+| 4 | 日 | 1-31 | `*` |
+| 5 | 月 | 1-12 | `*` |
+| 6 | 星期 | 0-6 (0=周日) | `1` (周一) |
+
+**常用表达式**：
+
+```bash
+# 每小时整点
+"0 0 * * * *"
+
+# 每天上午9点
+"0 0 9 * * *"
+
+# 每天上午9点和下午6点
+"0 0 9,18 * * *"
+
+# 每周一上午9点
+"0 0 9 * * 1"
+
+# 每5分钟
+"0 */5 * * * *"
+
+# 每30秒（不建议，太频繁）
+"*/30 * * * * *"
+```
 
 ### 4. 任务管理
 
-```python
-def list_jobs():
-    """查看所有定时任务"""
-    response = requests.get(
-        f"{BARK_API_URL}/jobs",
-        headers=headers
-    )
-    result = response.json()
-    
-    if result.get("success"):
-        jobs = result["data"]
-        print(f"当前共有 {len(jobs)} 个任务：")
-        for job in jobs:
-            job_type = "一次性" if job.get("at") else "循环"
-            time_info = job.get("at") or job.get("cron")
-            print(f"  - [{job_type}] {job['notify']['title']} ({time_info})")
-        return jobs
-    return []
+```bash
+# 查看所有任务
+curl -H "Authorization: Bearer ${BARK_PASSWORD}" \
+  "${BARK_API_URL}/jobs"
 
-def get_job(job_id: str):
-    """查看单个任务详情"""
-    response = requests.get(
-        f"{BARK_API_URL}/jobs/{job_id}",
-        headers=headers
-    )
-    return response.json()
+# 查看单个任务详情（替换为实际的 job_id）
+curl -H "Authorization: Bearer ${BARK_PASSWORD}" \
+  "${BARK_API_URL}/jobs/xxxxx"
 
-def cancel_job(job_id: str):
-    """取消定时任务"""
-    response = requests.delete(
-        f"{BARK_API_URL}/jobs/{job_id}",
-        headers=headers
-    )
-    result = response.json()
-    
-    if result.get("success"):
-        print(f"✅ 任务已取消: {job_id}")
-        return True
-    else:
-        print(f"❌ 取消失败: {result.get('error')}")
-        return False
+# 取消任务（替换为实际的 job_id）
+curl -X DELETE \
+  -H "Authorization: Bearer ${BARK_PASSWORD}" \
+  "${BARK_API_URL}/jobs/xxxxx"
 ```
 
 ## 完整使用示例
 
 ### 场景：为用户设置一天的工作提醒
 
-```python
-class AgentBarkClient:
-    def __init__(self, base_url: str = "http://localhost:3000", password: str = ""):
-        self.base_url = base_url
-        self.headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {password}"
-        }
-    
-    def notify(self, title: str, body: str, **kwargs):
-        """即时通知"""
-        data = {"title": title, "body": body, **kwargs}
-        response = requests.post(f"{self.base_url}/notify", headers=self.headers, json=data)
-        return response.json()
-    
-    def remind_in(self, minutes: int, title: str, body: str):
-        """在几分钟后提醒"""
-        at = (datetime.now(timezone.utc) + timedelta(minutes=minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
-        data = {"title": title, "body": body, "at": at}
-        response = requests.post(f"{self.base_url}/schedule/once", headers=self.headers, json=data)
-        return response.json()
-    
-    def daily_reminder(self, hour: int, minute: int, title: str, body: str, max_count: int = None):
-        """每天定时提醒"""
-        cron = f"0 {minute} {hour} * * *"
-        data = {"title": title, "body": body, "cron": cron}
-        if max_count:
-            data["max_count"] = max_count
-        response = requests.post(f"{self.base_url}/schedule/cron", headers=self.headers, json=data)
-        return response.json()
+```bash
+#!/bin/bash
 
-# 使用示例
-client = AgentBarkClient(
-    base_url=os.environ.get("BARK_API_URL", "http://localhost:3000"),
-    password=os.environ.get("BARK_API_PASSWORD", "")
-)
+# 配置
+BARK_API_URL="${BARK_API_URL:-http://localhost:3000}"
+BARK_PASSWORD="${BARK_API_PASSWORD:-}"
 
 # 1. 立即通知今天的工作安排
-client.notify(
-    title="今日工作安排",
-    body="1. 完成代码审查\n2. 参加下午3点的产品评审会\n3. 提交周报",
-    sound="bell",
-    group="工作安排"
-)
+echo "设置即时通知..."
+curl -X POST "${BARK_API_URL}/notify" \
+  -H "Authorization: Bearer ${BARK_PASSWORD}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "今日工作安排",
+    "body": "1. 完成代码审查\n2. 参加下午3点的产品评审会\n3. 提交周报",
+    "sound": "bell",
+    "group": "工作安排"
+  }'
 
 # 2. 会议前30分钟提醒
-client.remind_in(
-    minutes=150,  # 现在是9点，会议是11点半，差2.5小时
-    title="会议提醒",
-    body="30分钟后有产品评审会，请准备"
-)
+echo "设置会议提醒..."
+FUTURE_TIME=$(date -u -d "+30 minutes" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -v+30M +"%Y-%m-%dT%H:%M:%SZ")
+curl -X POST "${BARK_API_URL}/schedule/once" \
+  -H "Authorization: Bearer ${BARK_PASSWORD}" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"title\": \"会议提醒\",
+    \"body\": \"30分钟后有产品评审会，请准备\",
+    \"at\": \"${FUTURE_TIME}\"
+  }"
 
-# 3. 每天下午提醒喝水（最多提醒5天）
-client.daily_reminder(
-    hour=15,
-    minute=0,
-    title="喝水提醒",
-    body="工作再忙也要记得喝水哦",
-    max_count=5
-)
+# 3. 每天下午提醒喝水，最多提醒5天
+echo "设置喝水提醒..."
+curl -X POST "${BARK_API_URL}/schedule/cron" \
+  -H "Authorization: Bearer ${BARK_PASSWORD}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "喝水提醒",
+    "body": "工作再忙也要记得喝水哦",
+    "cron": "0 0 15 * * *",
+    "max_count": 5
+  }'
 
-print("✅ 所有提醒已设置完成！")
+echo "✅ 所有提醒已设置完成！"
 ```
 
 ## 常见问题
@@ -542,12 +443,17 @@ print("✅ 所有提醒已设置完成！")
 2. 时间必须是未来时间
 3. 服务器时区设置是否正确
 
+```bash
+# 验证时间格式
+echo "当前 UTC 时间: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+```
+
 ### Q: 循环任务创建成功但不执行？
 
 检查：
 1. Cron 表达式必须是 6 位（秒 分 时 日 月 星期）
 2. 服务器是否一直在运行
-3. 查看服务器日志：`journalctl -u agent-bark-api -f`
+3. 查看服务器日志：`journalctl -u agent-bark-api -f` 或 `docker logs agent-bark-api`
 
 ### Q: 用户说没收到通知？
 
@@ -555,14 +461,28 @@ print("✅ 所有提醒已设置完成！")
 1. device_key 是否正确配置
 2. 用户手机是否开启了 Bark 通知权限
 3. 用户是否处于勿扰模式
-4. 查看 API 返回结果中的 `code` 是否为 200
+4. 查看 API 返回结果中的 `success` 是否为 true
+
+```bash
+# 测试即时推送
+curl -X POST "${BARK_API_URL}/notify" \
+  -H "Authorization: Bearer ${BARK_PASSWORD}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "测试",
+    "body": "如果能收到这条消息，说明配置正确"
+  }'
+```
 
 ### Q: 如何取消已创建的提醒？
 
-保存创建时返回的 `job_id`，调用删除接口：
+保存创建时返回的 `job_id`，然后调用删除接口：
 
-```python
-requests.delete(f"{BARK_API_URL}/jobs/{job_id}", headers=headers)
+```bash
+# 假设 job_id 是 db253fcc-669e-49b1-a251-ab2e7dbb5357
+curl -X DELETE \
+  -H "Authorization: Bearer ${BARK_PASSWORD}" \
+  "${BARK_API_URL}/jobs/db253fcc-669e-49b1-a251-ab2e7dbb5357"
 ```
 
 ## 最佳实践
@@ -571,4 +491,15 @@ requests.delete(f"{BARK_API_URL}/jobs/{job_id}", headers=headers)
 2. **合理设置 max_count**：避免无限循环任务堆积
 3. **使用分组**：通过 `group` 参数对通知分类，方便用户管理
 4. **适度提醒**：避免过于频繁的推送打扰用户
-5. **错误处理**：始终检查 API 返回结果，处理错误情况
+5. **检查响应**：始终检查 API 返回结果中的 `success` 字段
+
+```bash
+# 示例：创建任务并保存 job_id
+RESPONSE=$(curl -s -X POST "${BARK_API_URL}/schedule/once" \
+  -H "Authorization: Bearer ${BARK_PASSWORD}" \
+  -H "Content-Type: application/json" \
+  -d '{...}')
+
+JOB_ID=$(echo "$RESPONSE" | grep -o '"job_id":"[^"]*"' | cut -d'"' -f4)
+echo "任务已创建: $JOB_ID"
+```

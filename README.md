@@ -461,42 +461,42 @@ Unauthorized: invalid or missing token
 
 如果你是为用户工作的 AI Agent，可以直接使用本项目向用户手机发送通知：
 
-```python
-import os
-import requests
-from datetime import datetime, timezone, timedelta
-
-# 配置
-BARK_API_URL = os.environ.get("BARK_API_URL", "http://localhost:3000")
-BARK_PASSWORD = os.environ.get("BARK_API_PASSWORD", "")
-
-headers = {
-    "Content-Type": "application/json",
-    "Authorization": f"Bearer {BARK_PASSWORD}"
-}
+```bash
+# 配置变量
+BARK_API_URL="http://localhost:3000"
+BARK_PASSWORD="你的密码"
 
 # 1. 即时通知
-requests.post(f"{BARK_API_URL}/notify", headers=headers, json={
+curl -X POST "${BARK_API_URL}/notify" \
+  -H "Authorization: Bearer ${BARK_PASSWORD}" \
+  -H "Content-Type: application/json" \
+  -d '{
     "title": "任务完成",
     "body": "数据处理已完成！",
     "sound": "bell"
-})
+  }'
 
-# 2. 30分钟后提醒
-future = datetime.now(timezone.utc) + timedelta(minutes=30)
-requests.post(f"{BARK_API_URL}/schedule/once", headers=headers, json={
-    "title": "会议提醒",
-    "body": "30分钟后开会",
-    "at": future.strftime("%Y-%m-%dT%H:%M:%SZ")  # UTC 时间
-})
+# 2. 30分钟后提醒（UTC 时间）
+FUTURE_TIME=$(date -u -d "+30 minutes" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -v+30M +"%Y-%m-%dT%H:%M:%SZ")
+curl -X POST "${BARK_API_URL}/schedule/once" \
+  -H "Authorization: Bearer ${BARK_PASSWORD}" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"title\": \"会议提醒\",
+    \"body\": \"30分钟后开会\",
+    \"at\": \"${FUTURE_TIME}\"
+  }"
 
 # 3. 每天定时提醒（cron 表达式）
-requests.post(f"{BARK_API_URL}/schedule/cron", headers=headers, json={
+curl -X POST "${BARK_API_URL}/schedule/cron" \
+  -H "Authorization: Bearer ${BARK_PASSWORD}" \
+  -H "Content-Type: application/json" \
+  -d '{
     "title": "喝水提醒",
     "body": "该喝水了",
-    "cron": "0 0 9,14,17 * * *",  # 每天9点、14点、17点
-    "max_count": 15  # 最多提醒15次
-})
+    "cron": "0 0 9,14,17 * * *",
+    "max_count": 15
+  }'
 ```
 
 完整指南请参考：[skills/agent-bark-api/SKILL.md](skills/agent-bark-api/SKILL.md)
