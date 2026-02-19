@@ -179,12 +179,21 @@ echo "提醒已设置，任务ID: $JOB_ID"
 
 ## 常见问题
 
-| 问题 | 原因 | 解决 |
-|------|------|------|
-| 401 Unauthorized | 密码错误或未传 | 检查 Authorization 头 |
-| Connection refused | 服务未启动 | `curl ${BARK_API_URL}/health` |
-| 时间格式错误 | 非 UTC 格式 | 使用 `date -u +"%Y-%m-%dT%H:%M:%SZ"` |
-| 未收到通知 | device_key 错误 | 检查 Bark App 中的 Device Key |
+```yaml
+常见问题:
+  - 问题: 401 Unauthorized
+    原因: 密码错误或未传
+    解决: 检查 Authorization 头
+  - 问题: Connection refused
+    原因: 服务未启动
+    解决: '`curl ${BARK_API_URL}/health`'
+  - 问题: 时间格式错误
+    原因: 非 UTC 格式
+    解决: '`date -u +"%Y-%m-%dT%H:%M:%SZ"`'
+  - 问题: 未收到通知
+    原因: device_key 错误
+    解决: 检查 Bark App 中的 Device Key
+```
 
 **详细参考:**
 - 部署指南: `references/deployment.md`
